@@ -14,8 +14,10 @@
 #   * curl, jq
 #   * ipatool (https://github.com/majd/ipatool/)
 #   * being logged via ipatool auth login. Need to provide email+password+2fa only first time you login. After that you just login via email+password
-#   * bagbak (https://github.com/ChiChou/bagbak)
 #   * device connected via usb and computer trusted
+#   * bagbak (https://github.com/ChiChou/bagbak)
+#   * frida-ios-dump (https://github.com/AloneMonkey/frida-ios-dump)
+#   * usbmuxd (brew install usbmuxd) + iproxy started with 'iproxy 2222 22'
 
 appUrl=$1
 if [ -z "${appUrl}" ]; then
@@ -57,7 +59,7 @@ else
 fi
 fileName=`echo ${bundleId}*.ipa`
 # brew install ideviceinstaller
-ideviceinstaller -l |grep ${bundleId}
+appNames=`ideviceinstaller -l |grep ${bundleId}`
 result=$?
 if [ $result -eq 0 ]; then
   echo "App ${bundleId} installed, skipping to dump"
@@ -69,19 +71,39 @@ else
     echo "Install failed!"
     exit 1
   fi
+  appNames=`ideviceinstaller -l |grep ${bundleId}`
 fi
-decrFileName="${bundleId}_${appVersion}.ipa"
-sleep 3
+# known as 'bundleDisplayName'
+displayId=`echo ${appNames}|awk '{print $3}'`
+displayId=${displayId//\"/}
+decrFileName="${displayId}_${appVersion}.ipa"
 echo "Dumping to ${decrFileName} ..."
 # https://github.com/ChiChou/bagbak
 bagbak -z ${bundleId}
-result=$?
-if [ $result -ne 0 ]; then
-  echo "Dump failed!"
-  exit 1
+# when bagbak crashes, result is still 0, but if it fails there is no ipa
+if [ -f dump/${bundleId}.ipa ]; then 
+  echo "Bagbak success"
+  mv dump/${bundleId}.ipa ./${decrFileName}
+else
+  # fall back to frida
+  echo "Bagbak fail, do frida dump"
+  echo "Check usb ssh"
+  echo|nc 127.0.0.1 2222
+  result=$?
+  if [ $result -ne 0 ]; then
+    echo "No iproxy! please run 'iproxy 2222 22'"
+    exit 1
+  fi
+  # frida-ios-dump
+  python3 dump.py ${bundleId} -o ${decrFileName}
+  result=$?
+  if [ $result -ne 0 ]; then
+    echo "Dump failed!"
+    exit 1
+  fi
 fi
-mv dump/${bundleId}.ipa dump/${decrFileName}
-echo "File ready! check dump/${decrFileName}"
+
+echo "File ready! check ${decrFileName}"
 echo "Cleaning up..."
 ideviceinstaller -U ${bundleId}
 rm $fileName
