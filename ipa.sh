@@ -19,10 +19,23 @@
 #   * frida-ios-dump (https://github.com/AloneMonkey/frida-ios-dump)
 #   * usbmuxd (brew install usbmuxd) + iproxy started with 'iproxy 2222 22'
 
+defaultCountry="US"
+country=$2
 appUrl=$1
+if [ "${appUrl}" == "--help" ] || [ "${appUrl}" == "-h" ]; then
+  echo "Usage: ipa.sh [URL] [COUNTRY]"
+  echo "URL - url of the ios app store app, eg. https://apps.apple.com/us/app/discord-talk-chat-hangout/id985746746"
+  echo "    Default: none. Will be read from stdin when not provided"
+  echo "COUNTRY - optional, capital two-letter country code, eg US = united states. Check https://en.wikipedia.org/wiki/List_of_ISO_3166_country_codes"
+  echo "    Default: US"
+  exit 0
+fi
 if [ -z "${appUrl}" ]; then
   echo "Provide url, eg https://apps.apple.com/us/app/discord-talk-chat-hangout/id985746746"
   read appUrl
+fi
+if [ -z "${country}" ]; then
+  country=$defaultCountry
 fi
 
 parseId=${appUrl/*id/}
@@ -48,7 +61,7 @@ if [ -f ${bundleId}*.ipa ]; then
 else
   echo ".ipa File does not exist, downloading"
   # brew tap majd/repo; brew install ipatool
-  ipatool download --purchase -c AE -b $bundleId
+  ipatool download --purchase -c $country -b $bundleId
   result=$?
   if [ $result -ne 0 ]; then
     echo "Purchase or download failed! please login with 'ipatool auth login'"
