@@ -48,7 +48,7 @@ fi
 
 # brew install curl
 # brew install jq
-appInfo=`curl -s "https://itunes.apple.com/lookup?id=${parseId}"`
+appInfo=`curl -s "https://itunes.apple.com/${country}/lookup?id=${parseId}"`
 bundleId=`echo ${appInfo}|jq -r '.results[0].bundleId'`
 appVersion=`echo ${appInfo}|jq -r '.results[0].version'`
 if [ -z "${bundleId}" ]; then
